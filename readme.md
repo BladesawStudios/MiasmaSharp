@@ -17,6 +17,24 @@ renderer's parameters and the volumes' shapes.
 - `MiasmaShape.Read` takes an actor's `Phive/ShapeParam` file: a sphere, a box or an upright cylinder, as the
   matrix that takes the shape's unit volume to the actor's local space.
 
+## Noise
+
+The renderer samples five 3D noise textures the game does not ship: `game::gfx::NoiseMgr` renders them at boot
+with agl's procedural noise programs (`Lib/agl/agl_resource.Nin_NX_NVN.release.sarc.zs`, `agl_technique_proc.sharcb`).
+`Noise/MiasmaNoiseTextures` builds the same five, R8 and single-level as the game's:
+
+| Sampler | Size | Noise |
+|---|---|---|
+| `cVoronoiseCloud` | 64³ | domain-warped voronoise, 8 cells across |
+| `cGradientSimple` | 64³ | gradient noise, 4 cells across |
+| `cGradientFbm` | 64³ | four octaves of it |
+| `cGradientRidge` | 64³ | its ridged form |
+| `cWorleySimple` | 32³ | Worley distance, 4 cells across |
+
+Each noise was checked against its decompiled program run on the CPU. The gradient noises agree to 1e-4. Worley and
+voronoise hash their cells with `fract(sin(x) * big)`, which magnifies the last bit of the sine, so their structure
+is the game's but which value a cell gets depends on the machine's sine.
+
 ## Area codes
 
 `MiasmaAreaCodes` holds the game's table between an actor's code and the renderer's `MiasmaAreaType`:
