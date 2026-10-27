@@ -7,7 +7,15 @@ Gloom is not painted into the terrain or the models. The game places model-less 
 code, and its `MiasmaRenderer` draws the gloom over the finished scene wherever a visible surface falls inside one
 of them.
 
-This library has no dependencies.
+It depends on BymlSharp (`lib/BymlSharp`, or `$(BymlLibRoot)` when a host already has a copy) to read the
+renderer's parameters and the volumes' shapes.
+
+## Reading
+
+- `MiasmaRendererParams.Read` takes `System/GameGraphics/ModelSceneExtensionParam/Default.game__gfx__ModelSceneExtensionParam.bgyml`
+  from `Pack/Bootup.Nin_NX_NVN.pack.zs`, and keeps the game's defaults for what it leaves out.
+- `MiasmaShape.Read` takes an actor's `Phive/ShapeParam` file: a sphere, a box or an upright cylinder, as the
+  matrix that takes the shape's unit volume to the actor's local space.
 
 ## Area codes
 
