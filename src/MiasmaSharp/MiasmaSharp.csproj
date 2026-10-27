@@ -14,6 +14,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Shaders\*.vert;Shaders\*.frag" LogicalName="MiasmaSharp.Shaders.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The renderer's parameters and the volumes' shapes are BYML documents. -->
     <ProjectReference Include="$(BymlLibRoot)\BymlSharp\src\BymlSharp\BymlSharp.csproj" />
   </ItemGroup>
