@@ -1,14 +1,16 @@
 #version 330 core
 
-// The gloom renderer's shape pass: miasma_renderer_shape with its noise on, the variant the game
-// draws every volume with.
+// The gloom renderer's shape pass: miasma_renderer_shape with its noise on, both the variant the game
+// draws its volumes with and the one it draws cancelling volumes with (BLEND_TYPE 1).
 //
 // A volume is drawn as the box around its unit volume, and each fragment rebuilds the surface point
 // the scene shows there from the depth buffer. A point inside the volume gets a density: the shape's
 // own falloff s, scaled by the area's density and broken up by world-space gradient noise, with a
 // ridge pattern eating into where it is thin. The result goes to an RG target, R the density and G
-// the volume's fade, which the host blends with MAX for a volume and MIN for a cancelling one, so a
-// cancel sphere at fade 0 clears what the others laid down. The numbers are the program's own.
+// the volume's fade, which the host blends with MAX for a volume. A cancelling volume, blended with
+// MIN, writes instead how much gloom it leaves: all of it where it is thin, none where its density
+// reaches 0.4, so it clears with a noisy edge, and it lowers G to its fade only where it clears all.
+// The numbers are the program's own.
 
 layout(location = 0) out vec2 FragDensity;
 
@@ -34,6 +36,8 @@ uniform vec2  uInnerRatio;
 // A cylinder's noise scale; the other shapes sample at the program's fixed scales.
 uniform float uNoiseScale;
 uniform float uFade;
+// 1 for a cancelling volume, the program's BLEND_TYPE.
+uniform int   uCancels;
 
 uniform sampler3D uGradientSimple;
 uniform sampler3D uGradientFbm;
@@ -52,7 +56,7 @@ float gameAcos(float c)
 // Full detail within 0.6 of a range, fading out by its end.
 float fadeIn(float d) { return d < 0.6 ? 1.0 : 1.0 - clamp((d - 0.6) * 2.5000002, 0.0, 1.0); }
 
-float mark(float s, float density, vec3 world, float dist, float noiseScale, float ridgeScale)
+vec2 mark(float s, float density, vec3 world, float dist, float noiseScale, float ridgeScale)
 {
     vec3 coord = world * noiseScale;
     float near = dist / 300.0;
@@ -67,13 +71,25 @@ float mark(float s, float density, vec3 world, float dist, float noiseScale, flo
     {
         float far = dist / 150.0;
         float ridge = far < 1.0 ? texture(uGradientRidge, world * ridgeScale).x * fadeIn(far) : 0.0;
-        float k = (1.0 + 0.5 * clamp((dist - 30.0) * 0.02, 0.0, 1.0)) * -0.23;
-        v *= clamp((v + s * clamp((ridge - 0.25) * 1.3333334, 0.0, 1.0) + k) / (k + 0.5), 0.0, 1.0);
+        float worn = s * clamp((ridge - 0.25) * 1.3333334, 0.0, 1.0);
+        if (uCancels != 0)
+        {
+            if (v + worn < 0.25) discard;
+        }
+        else
+        {
+            float k = (1.0 + 0.5 * clamp((dist - 30.0) * 0.02, 0.0, 1.0)) * -0.23;
+            v *= clamp((v + worn + k) / (k + 0.5), 0.0, 1.0);
+        }
     }
-    return v;
+    if (uCancels == 0) return vec2(v, uFade);
+
+    float left = clamp((0.4 - v) * 2.5, 0.0, 1.0);
+    float whole = clamp(left * 100.0, 0.0, 1.0);
+    return vec2(left, whole > 0.5 ? whole : uFade);
 }
 
-float cylinder(vec3 l, vec3 world, float dist)
+vec2 cylinder(vec3 l, vec3 world, float dist)
 {
     float r = length(l.xz);
     if (abs(l.y) > 0.5 || r > 0.5) discard;
@@ -88,7 +104,7 @@ float cylinder(vec3 l, vec3 world, float dist)
     return mark(s, mix(uDensity.y, uDensity.x, h), world, dist, 0.05 * uNoiseScale, 0.25 * uNoiseScale);
 }
 
-float altitude(vec3 world, float dist)
+vec2 altitude(vec3 world, float dist)
 {
     vec2 uv = vec2(world.x * 0.0001 + 0.5, world.z * 0.000125 + 0.5);
     float depth = texture(uAttitude, uv).x * -2000.0 - world.y;
@@ -100,7 +116,7 @@ float altitude(vec3 world, float dist)
     float height = mix(below, clamp(rise + lip, -1.0, 11.0), thick);
     if (height < 0.0) discard;
     float s = 2.0 - 2.0 * clamp((0.1 - min(height * 0.02, 1.0)) * 10.0, 0.0, 1.0);
-    return mark(s, uDensity.x, world, dist, 0.1, 0.5);
+    return vec2(mark(s, uDensity.x, world, dist, 0.1, 0.5).x, 1.0);
 }
 
 void main()
@@ -115,7 +131,7 @@ void main()
     float dist = -viewZ * uDistanceScale;
     vec3 l = (uViewToUnit * vec4(view, 1.0)).xyz;
 
-    float v;
+    vec2 v;
     if (uShape == 0)
     {
         // The game's sphere ends at its radius: it stores the radius over 0.88 and keeps s >= 0.12.
@@ -131,5 +147,5 @@ void main()
     else if (uShape == 2) v = cylinder(l, world, dist);
     else v = altitude(world, dist);
 
-    FragDensity = vec2(v, uShape == 3 ? 1.0 : uFade);
+    FragDensity = v;
 }
