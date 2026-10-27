@@ -17,6 +17,20 @@ renderer's parameters and the volumes' shapes.
 - `MiasmaShape.Read` takes an actor's `Phive/ShapeParam` file: a sphere, a box or an upright cylinder, as the
   matrix that takes the shape's unit volume to the actor's local space.
 
+## Rendering
+
+`Rendering/MiasmaShaders` holds GLSL 3.30 ports of the renderer's two passes, for a host to compile with its own GL:
+
+1. **Shape** (`MiasmaVolume.vert`, `MiasmaShape.frag`): each volume's box is drawn inside out, and every pixel whose
+   surface point lies inside the volume gets a density from the volume's falloff, world-space noise and a ridge
+   pattern, written to an RG target as (density, fade). The game blends it with MAX, and with MIN for cancelling
+   volumes, whose fade going to zero clears the gloom. A fourth shape is the world-wide altitude gloom of the Depths.
+2. **Compose** (`MiasmaFullscreen.vert`, `MiasmaCompose.frag`): wherever there is density and fade, the surface's
+   albedo and emission are replaced by the gloom pattern, in three tiers by distance, before lighting.
+
+`MiasmaVolumeConstants` and `MiasmaComposeConstants` give the uniforms as the game fills them. Both passes were
+checked against the game's programs run on the CPU: every shape and every compose tier agree to 1e-4.
+
 ## Noise
 
 The renderer samples five 3D noise textures the game does not ship: `game::gfx::NoiseMgr` renders them at boot
