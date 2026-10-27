@@ -10,6 +10,12 @@
     <Authors>Aiden A</Authors>
     <Description>Tears of the Kingdom's gloom (Miasma) renderer: areas, parameters, noise and shaders.</Description>
     <PackageLicenseExpression>AGPL-3.0-or-later</PackageLicenseExpression>
+    <BymlLibRoot Condition="'$(BymlLibRoot)' == ''">$(MSBuildThisFileDirectory)..\..\lib</BymlLibRoot>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The renderer's parameters and the volumes' shapes are BYML documents. -->
+    <ProjectReference Include="$(BymlLibRoot)\BymlSharp\src\BymlSharp\BymlSharp.csproj" />
+  </ItemGroup>
 
 </Project>
